@@ -19,8 +19,8 @@ trust_raw_data_relevant <- trust_raw_data%>% dplyr::select(-c(category, sex, age
 
 
 ```{r}
-trust_raw_data_relevant <(filter(name=="I am familiar with the topic or data this visualization presents."))
-familiarity_trust_tree <- rpart(name ~. , data = trust_raw_data_relevant, method="class", minsplit=8)
+filtered_data <- trust_raw_data_relevant[trust_raw_data_relevant$name== "I am familiar with the topic or data this visualization presents.", ]
+familiarity_trust_tree <- rpart(name ~. , data = trust_raw_data_relevant, method="class")
 rpart.plot(credibility_trust_tree, type = 4, clip.right.labs = FALSE, extra=102)
 
 ```
@@ -28,19 +28,4 @@ rpart.plot(credibility_trust_tree, type = 4, clip.right.labs = FALSE, extra=102)
 
 credibility, clarity, reliability, familiarity, and confidence.
 
-q16esa_data <- na.omit(q16esa_data)
-q16esa_data$Q16S <- droplevels(q16esa_data$Q16S, exclude = "")
 
-
-
-bag_Q16S_bagged = randomForest(Q16S ~ ., 
-                       data = q16esa_data, 
-                       mtry = 13, 
-                       importance = TRUE)
-varImpPlot(bag_Q16S_bagged)
-
-bag_Q16S_randomforests = randomForest(Q16S ~ ., 
-                       data = q16esa_data, 
-                       importance = TRUE)
-# Print the model
-varImpPlot(bag_Q16S_randomforests)
