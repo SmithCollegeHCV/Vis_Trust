@@ -17,6 +17,7 @@ library(dplyr)
 library(rpart.plot)
 library(MASS)
 library(caret)
+library(ztable)
 select <- dplyr::select
 ```
 
@@ -105,3 +106,20 @@ rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 #. `group_by` leaf node
 #. Select `unique()` images
 #. Make some kind of collage so we can look for visual trends
+#. Original images can be found at: https://people.csail.mit.edu/zoya/VisThumbnails/fullsize/
+
+```{r}
+believe_pred = predict(believe_prelim_tree, believe_data, type = "class")
+
+table(believe_pred, believe_data$response)
+```
+```{r}
+believe_data_with_pred <- cbind(believe_data, pred = believe_pred)
+
+believe_data_with_pred %>%
+  filter(pred == "Strongly Agree" & response == "Strongly Disagree") %>%
+  select(image_new) %>%
+  unique()
+
+```
+
