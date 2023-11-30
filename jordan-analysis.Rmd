@@ -1,0 +1,107 @@
+---
+title: "Trust Analysis 2024"
+author: "Jordan"
+date: "2023-11-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(tree)
+library(dplyr)
+library(rpart.plot)
+library(MASS)
+library(caret)
+select <- dplyr::select
+```
+
+```{r}
+trust_2023_raw_data <- read_csv("trust-2023-raw-data.csv") %>%
+  mutate(response = factor(response, order = TRUE, 
+                           levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")),
+         likertscale = factor(likertscale, ordered = TRUE),
+         category = factor(category, levels = c("I", "N", "G", "S"), 
+                           labels = c("Infographic", "News", "Government", "Scientific")))
+```
+## Sources
+```{r}
+trust_2023_raw_data %>%
+  select(category, source, image_new) %>%
+  unique() %>%
+  group_by(category, source) %>%
+  summarise(n = n())
+```
+
+```{r}
+category_data <- trust_2023_raw_data %>%
+  select(c(image_new, category, vistype, starts_with("attr"))) %>%
+  unique()
+```
+
+```{r}
+category_prelim_tree <- rpart(category ~.-image_new , data = category_data, method="class", minsplit = 8)
+```
+
+```{r}
+rpart.plot(category_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+## Descriminant analysis
+```{r}
+#use 80% of dataset as training set and 20% as test set 
+train <- category_data %>% dplyr::sample_frac(0.70)
+test  <- dplyr::anti_join(category_data, train, by = 'image_new')
+train <- train %>% select(-image_new)
+text <- test %>% select(-image_new)
+lda_category <- lda(category ~. , data = train)
+```
+
+```{r}
+lda_category
+```
+
+
+```{r}
+predictions_LDA = data.frame(predict(lda_category, test))
+
+preds <- cbind(test, predictions_LDA) 
+
+
+# Confusion Matrix
+cf <- caret::confusionMatrix(data=preds$class,
+                     reference=test$category)
+
+print(cf)
+
+```
+
+## Believe (balanced sampling, n = 125 per group)
+Note: remember to drop session_id, etc. or you'll be waiting foreverrrrrr...
+```{r}
+believe_data <- trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data.") %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  #mutate(age_cat = cut(age, breaks = c(-Inf,35,50,Inf), labels = c("Under 35", "36-49", "Over 50"))) %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+```{r}
+believe_prelim_tree <- rpart(response ~.-image_new , data = believe_data, method="class", minsplit = 4)
+```
+
+```{r}
+rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+## Next steps
+
+#. Label original believe_data with leaf node each observation falls in (maybe a `join(...)` with `predict(...)`?)
+#. `group_by` leaf node
+#. Select `unique()` images
+#. Make some kind of collage so we can look for visual trends
