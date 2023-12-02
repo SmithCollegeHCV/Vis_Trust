@@ -14,17 +14,19 @@ library(tidyverse)
 library(ggplot2)
 library(tree)
 library(dplyr)
+library(randomForest)
 library(rpart.plot)
 ```
 
 ```{r}
-trust_2023_raw_data <- read_csv("trust-2023-raw-data.csv")
+trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv")
 ```
+# Credibility:
 
 ```{r}
 believe_real_data <- trust_2023_raw_data %>%
   filter(name == "I believe the visualization shows real data.") %>%
-  select(-c(...1, name, session_id, category, question_type, cluster, image, image_new, title, likertscale, starts_with("mem"))) %>% head(300)
+  select(-c(...1, subfolder, session_id, category, question_type, cluster, image, image_new, title, likertscale, starts_with("mem"))) %>% head(600)
 ```
 
 ```{r}
@@ -35,8 +37,29 @@ believe_prelim_tree <- rpart(response ~. , data = believe_real_data, method="cla
 rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=102)
 ```
 
-
 ```{r}
-rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=102)
+believe_prelim_tree <- na.omit(believe_real_data)
+#believe_prelim_tree$name <- droplevels(believe_prelim_tree$name, exclude = "")
+
+bag_credibility_bagged = randomForest(response ~ ., 
+                       data = believe_real_data, 
+                       mtry = 15, 
+                       importance = TRUE)
+varImpPlot(bag_Q10S_bagged)
+
+bag_credibility_randomforests = randomForest(response ~ ., 
+                       data = believe_real_data, 
+                       importance = TRUE)
+# Print the model
+varImpPlot(bag_Q10S_randomforests)
+
+
 ```
+
+
+#Clarity:
+#Reliability
+#Familiarity
+#Confidence
+
 
