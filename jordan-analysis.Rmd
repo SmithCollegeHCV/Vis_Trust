@@ -80,7 +80,22 @@ print(cf)
 
 ```
 
-## Believe (balanced sampling, n = 125 per group)
+# Believe
+## Are there some stimuli that got a wide range or responses?
+```{r}
+trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data.") %>%
+  group_by(image_new, response) %>%
+  summarise(n= n()) %>%
+  arrange(response) %>%
+  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
+  rowwise() %>%
+  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
+  filter(total_uses > 1) %>%
+  arrange(desc(total_uses))
+```
+
+## (balanced sampling, n = 125 per group)
 Note: remember to drop session_id, etc. or you'll be waiting foreverrrrrr...
 ```{r}
 believe_data <- trust_2023_raw_data %>%
@@ -113,13 +128,34 @@ believe_pred = predict(believe_prelim_tree, believe_data, type = "class")
 
 table(believe_pred, believe_data$response)
 ```
+## Predicted vs. true
 ```{r}
-believe_data_with_pred <- cbind(believe_data, pred = believe_pred)
+believe_data_with_pred <- cbind(believe_data, pred = believe_pred) %>%
+  mutate(pred = factor(pred, order = TRUE, 
+                           levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")))
+```  
 
+## Are there some stimuli that got a wide range or responses?
+```{r}
 believe_data_with_pred %>%
-  filter(pred == "Strongly Agree" & response == "Strongly Disagree") %>%
-  select(image_new) %>%
-  unique()
+  group_by(image_new, response) %>%
+  summarise(n= n()) %>%
+  arrange(response) %>%
+  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
+  rowwise() %>%
+  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
+  filter(total_uses > 1) %>%
+  arrange(desc(total_uses))
+```
 
+## Images with largest errors
+```{r}
+believe_data_with_pred %>%
+  group_by(image_new, response) %>%
+  summarise(n= n(),
+            pred = pred) %>%
+  mutate(error = as.numeric(response) - as.numeric(pred)) %>%
+  filter(abs(error) > 2) %>%
+  arrange(image_new, desc(n))
 ```
 
