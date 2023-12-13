@@ -157,13 +157,12 @@ believe_data_with_pred %>%
   mutate(error = as.numeric(response) - as.numeric(pred)) %>%
   filter(abs(error) > 2) %>%
   arrange(image_new, desc(n))
-  filter(pred == "Strongly Disagree" & response == "Strongly Agree") %>%
-  select(image_new) %>%
-  unique()
 ```
+  
 
 
-# balancd sampling for strongly agree and disagree:
+
+# balanced sampling for strongly agree and disagree:
 
 ```{r}
 strongly_believe_data <- trust_2023_raw_data %>%
