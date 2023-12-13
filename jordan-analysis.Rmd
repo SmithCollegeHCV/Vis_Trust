@@ -22,7 +22,7 @@ select <- dplyr::select
 ```
 
 ```{r}
-trust_2023_raw_data <- read_csv("trust-2023-raw-data.csv") %>%
+trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
   mutate(response = factor(response, order = TRUE, 
                            levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")),
          likertscale = factor(likertscale, ordered = TRUE),
@@ -157,5 +157,29 @@ believe_data_with_pred %>%
   mutate(error = as.numeric(response) - as.numeric(pred)) %>%
   filter(abs(error) > 2) %>%
   arrange(image_new, desc(n))
+  filter(pred == "Strongly Disagree" & response == "Strongly Agree") %>%
+  select(image_new) %>%
+  unique()
 ```
 
+
+# balancd sampling for strongly agree and disagree:
+
+```{r}
+strongly_believe_data <- trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+
+```{r}
+strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_believe_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
