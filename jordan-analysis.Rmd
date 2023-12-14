@@ -18,6 +18,7 @@ library(rpart.plot)
 library(MASS)
 library(caret)
 library(ztable)
+library(GGally)
 select <- dplyr::select
 ```
 
@@ -214,7 +215,8 @@ strongly_reliable_data <- trust_2023_raw_data %>%
   sample_n(125) %>%
   ungroup() %>%
   select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+            starts_with("title"), starts_with("mem"), question_type, cluster, source)) 
+ggpairs(strongly_reliable_data)
 ```
 
 
