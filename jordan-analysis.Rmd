@@ -292,8 +292,8 @@ trust_2023_raw_data %>%
     overall_mean = mean(agreement_mean, na.rm = TRUE),
     overall_sd = sd(agreement_mean, na.rm = TRUE),
     agreement_level = case_when(
-      agreement_mean > overall_mean + 2 * overall_sd ~ "higher",
-      agreement_mean < overall_mean - 2 * overall_sd ~ "lower",
+      agreement_mean > overall_mean +  overall_sd ~ "higher",
+      agreement_mean < overall_mean -  overall_sd ~ "lower",
       TRUE ~ "other"
     )
   ) %>%
