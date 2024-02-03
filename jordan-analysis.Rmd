@@ -19,6 +19,7 @@ library(MASS)
 library(caret)
 library(ztable)
 library(GGally)
+library(tidyr)
 select <- dplyr::select
 ```
 
@@ -233,7 +234,7 @@ rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, ex
 ```{r}
 strongly_familiar_data <- trust_2023_raw_data %>%
   filter(name == "I am familiar with the topic or data this visualization presents." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) %>%
+  group_by(likertscale) ategory %>%
   sample_n(125) %>%
   ungroup() %>%
   select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
@@ -274,35 +275,44 @@ rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, ext
 # seperate images based on deviation from the usual:
 
 ```{r}
-library(dplyr)
-library(tidyr)
-
 trust_2023_raw_data %>%
-  filter(name == "I believe the visualization shows real data.") %>%
-  group_by(image_new, response) %>%
+  group_by(name, image_new, response) %>%
   summarise(n = n()) %>%
-  arrange(response) %>%
+  arrange(name, response) %>%
   pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
   mutate(
     total_responses = `Strongly Disagree` + `Disagree` + `Nor` + `Agree` + `Strongly Agree`,
     agreement_mean = (2 * `Strongly Agree` + 1 * `Agree` + 0 * `Nor` - 1 * `Disagree` - 2 * `Strongly Disagree`) / total_responses
   ) %>%
   ungroup() %>%
+  group_by(name) %>%
   mutate(
     overall_mean = mean(agreement_mean, na.rm = TRUE),
     overall_sd = sd(agreement_mean, na.rm = TRUE),
     agreement_level = case_when(
-      agreement_mean > overall_mean +  overall_sd ~ "higher",
-      agreement_mean < overall_mean -  overall_sd ~ "lower",
-      TRUE ~ "other"
+      agreement_mean > overall_mean + overall_sd ~ "higher",
+      agreement_mean < overall_mean - overall_sd ~ "lower",
+      TRUE ~ "avg"
     )
   ) %>%
-  filter(agreement_level %in% c("higher", "lower")) %>%
-  select(image_new, agreement_level)
+  select(name, image_new, agreement_level)%>%
+    mutate(
+    name = case_when(
+      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
+      name == "I believe the visualization shows real data." ~ "Credibility",
+      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
+      name == "I would rely on the facts in this Visualization." ~ "Reliability",
+      name == "I would feel confident using the information to make a decision." ~ "Confidence",
+      TRUE ~ name
+    )
+  ) %>%
+  pivot_wider(names_from = name, values_from = agreement_level) %>%
+  select(image_new, Familiarity, Credibility, Clarity, Confidence,Reliability)
+
+
 ```
 
+There is a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
 
 
-higher agreement than usual (positive skew)
-higher agreement than usual (negative skew)
-(for now) "everything else
+
