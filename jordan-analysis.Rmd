@@ -22,7 +22,7 @@ select <- dplyr::select
 ```
 
 ```{r}
-trust_2023_raw_data <- read_csv("trust-2023-raw-data.csv") %>%
+trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
   mutate(response = factor(response, order = TRUE, 
                            levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")),
          likertscale = factor(likertscale, ordered = TRUE),
