@@ -273,9 +273,8 @@ rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, ext
 ```
 
 # seperate images based on deviation from the usual:
-
 ```{r}
-trust_2023_raw_data %>%
+trust_placement <- trust_2023_raw_data %>%
   group_by(name, image_new, response) %>%
   summarise(n = n()) %>%
   arrange(name, response) %>%
@@ -295,8 +294,8 @@ trust_2023_raw_data %>%
       TRUE ~ "avg"
     )
   ) %>%
-  select(name, image_new, agreement_level)%>%
-    mutate(
+  select(name, image_new, agreement_level) %>%
+  mutate(
     name = case_when(
       name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
       name == "I believe the visualization shows real data." ~ "Credibility",
@@ -307,12 +306,106 @@ trust_2023_raw_data %>%
     )
   ) %>%
   pivot_wider(names_from = name, values_from = agreement_level) %>%
-  select(image_new, Familiarity, Credibility, Clarity, Confidence,Reliability)
-
-
+  ungroup() %>%
+  rowwise() %>%
+  mutate(
+    General = case_when(
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "lower") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("lower", "avg")) == 5 ~ "lower",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "higher") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("higher", "avg")) == 5 ~ "higher",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "avg") >= 4 ~ "avg",
+      TRUE ~ "mixed"
+    )
+  ) %>%
+  select(image_new, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
 ```
 
 There is a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
 
+```{r}
+trust_placement_percentages <- trust_placement %>%
+  group_by(General) %>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  mutate(percentage = count / sum(count) * 100)
+trust_placement_percentages
+
+```
+
+# attr diff
+```{r}
+merged_trust <- trust_2023_raw_data %>%
+  left_join(trust_placement, by = "image_new") %>%
+  group_by(image_new) %>%
+    select(image_new, category, vistype, `attr: data-ink ratio`,
+         `attr: # distinct colors`, `attr: black&white`, 
+         `attr: visual density`, `attr: human recognizable object`, 
+         `attr: human depiction`, General) %>%
+    filter(General %in% c("higher", "lower"))%>%
+
+  slice(1)  
+merged_trust
 
 
+```
+
+
+```{r}
+vis_attr_prelim_tree <- rpart(General ~.-image_new , data = merged_trust, method="class", minsplit = 8)
+```
+
+```{r}
+rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+# individual diff
+
+```{r}
+individual_averages <- trust_2023_raw_data %>%
+  mutate(
+    response_numerical = case_when(
+      response == "Strongly Disagree" ~ -2,
+      response == "Disagree" ~ -1,
+      response == "Nor" ~ 0,
+      response == "Agree" ~ 1,
+      response == "Strongly Agree" ~ 2,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  group_by(name, session_id) %>%
+  summarise(
+    agreement_mean = mean(response_numerical, na.rm = TRUE),
+    agreement_sd = sd(response_numerical, na.rm = TRUE)
+  ) %>%
+  mutate(
+    name = case_when(
+      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
+      name == "I believe the visualization shows real data." ~ "Credibility",
+      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
+      name == "I would rely on the facts in this Visualization." ~ "Reliability",
+      name == "I would feel confident using the information to make a decision." ~ "Confidence",
+      TRUE ~ name
+    )
+  )%>%
+  pivot_wider(names_from = name, values_from = c(agreement_mean, agreement_sd))%>%
+  mutate(
+    Familiarity = paste(round(agreement_mean_Familiarity, 2), "/", round(agreement_sd_Familiarity, 2)),
+    Credibility = paste(round(agreement_mean_Credibility, 2), "/", round(agreement_sd_Credibility, 2)),
+    Clarity = paste(round(agreement_mean_Clarity, 2), "/", round(agreement_sd_Clarity, 2)),
+    Reliability = paste(round(agreement_mean_Reliability, 2), "/", round(agreement_sd_Reliability, 2)),
+    Confidence = paste(round(agreement_mean_Confidence, 2), "/", round(agreement_sd_Confidence, 2))
+  ) %>%
+  select(session_id, Familiarity, Credibility, Clarity, Confidence, Reliability)
+```
+```{r}
+merged_pt2 <- trust_2023_raw_data %>%
+  left_join(individual_averages, by = "session_id") %>%
+  group_by(session_id) %>%
+  select(session_id, Familiarity, Credibility, Clarity, Confidence, Reliability, sex, age, education, mini_score)%>%
+  slice(1)  
+
+merged_pt2
+
+
+```
