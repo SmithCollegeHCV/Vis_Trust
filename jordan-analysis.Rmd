@@ -462,7 +462,7 @@ individual_placement_percentages
 ```
 
 ```{r}
-individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class", minsplit = 8)
+individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class")
 ```
 
 ```{r}
