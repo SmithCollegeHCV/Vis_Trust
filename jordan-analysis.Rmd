@@ -443,7 +443,7 @@ individual_placement <- individual_averages %>%
 merged_individual <- trust_2023_raw_data %>%
   left_join(individual_placement, by = "session_id") %>%
   group_by(session_id) %>%
-  select(session_id, General, sex, age, education, mini_score)%>%
+  select(session_id, General, age, education, mini_score)%>%
   filter(General %in% c("higher", "lower"))%>%
 
   slice(1)  
