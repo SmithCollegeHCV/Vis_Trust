@@ -166,7 +166,9 @@ believe_data_with_pred %>%
 
 # balanced sampling for strongly agree and disagree:
 
-## Credibility:
+In the analysis below, we are using decision trees to determine which individual characteristic and visualization attributes influence whether people strongly trust or distrust that visualization for all five dimensions of trust
+
+## Belief:
 
 
 ```{r}
@@ -256,7 +258,7 @@ rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra
 
 ```{r}
 strong_confidence_data <- trust_2023_raw_data %>%
-  filter(name == "I believe the visualization shows real data." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  filter(name == "I would feel confident using the information to make a decision." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
   group_by(likertscale) %>%
   sample_n(125) %>%
   ungroup() %>%
