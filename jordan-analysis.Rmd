@@ -217,7 +217,6 @@ strongly_reliable_data <- trust_2023_raw_data %>%
   ungroup() %>%
   select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
             starts_with("title"), starts_with("mem"), question_type, cluster, source)) 
-ggpairs(strongly_reliable_data)
 ```
 
 
@@ -234,7 +233,7 @@ rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, ex
 ```{r}
 strongly_familiar_data <- trust_2023_raw_data %>%
   filter(name == "I am familiar with the topic or data this visualization presents." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) ategory %>%
+  group_by(likertscale)%>%
   sample_n(125) %>%
   ungroup() %>%
   select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
@@ -344,10 +343,6 @@ merged_vis <- trust_2023_raw_data %>%
          `attr: human depiction`)%>%
 
    slice(1)  
-
-    #filter(General %in% c("higher", "lower"))%>%
-
-#  slice(1)  
 merged_vis
 
 
@@ -443,7 +438,7 @@ individual_placement <- individual_averages %>%
 merged_individual <- trust_2023_raw_data %>%
   left_join(individual_placement, by = "session_id") %>%
   group_by(session_id) %>%
-  select(session_id, General, age, education, mini_score)%>%
+  select(session_id, General, age, sex, education, mini_score)%>%
   filter(General %in% c("higher", "lower"))%>%
 
   slice(1)  
@@ -462,9 +457,28 @@ individual_placement_percentages
 ```
 
 ```{r}
-individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class")
+individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class", minsplit=4)
 ```
 
 ```{r}
 rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+
+```{r}
+education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
+
+merged_individual <- merged_individual %>%
+  mutate(education = factor(education, levels = education_order))
+merged_individual%>%
+ggplot(aes(x=age,y=mini_score, color=General))+geom_point()+facet_grid(sex~education)
+```
+
+```{r}
+merged_individual%>%
+  mutate(over_59= age>=59 )%>%
+  group_by(sex, over_59,education)%>%
+  summarize(n=n())%>%
+  pivot_wider(names_from= education, values_from = n)
+```
+
+
