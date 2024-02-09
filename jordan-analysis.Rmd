@@ -23,6 +23,8 @@ library(tidyr)
 select <- dplyr::select
 ```
 
+# General Cleaning and Statistical Calculations:
+
 ```{r}
 trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
   mutate(response = factor(response, order = TRUE, 
