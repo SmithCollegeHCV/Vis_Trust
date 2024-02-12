@@ -468,6 +468,8 @@ individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_indivi
 rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+Here we are trying to visualize how higher and lower trust is distributed by visual literacy, sex, and education.
+
 ```{r}
 education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
 
