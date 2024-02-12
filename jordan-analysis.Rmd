@@ -57,13 +57,22 @@ category_data <- trust_2023_raw_data %>%
 
 Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
 ```{r}
-category_prelim_tree <- rpart(category ~.-image_new, 
+category_features <- rpart(category ~.-image_new, 
                               data = category_data, 
                               method = "class", 
                               minsplit = 8)
 
-rpart.plot(category_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+The confusion matrix for this tree is as follows:
+```{r}
+category_features_predictions <- predict(category_features, type = "class")
+
+confusionMatrix(category_features_predictions, category_data$category) 
+```
+
+Again, we observe that classification accuracy is not uniform across categories:
+
 
 # Believe
 ## Are there some stimuli that got a wide range or responses?
