@@ -20,11 +20,11 @@ library(caret)
 library(ztable)
 library(GGally)
 library(tidyr)
+library(kableExtra)
 select <- dplyr::select
 ```
 
 # General Cleaning and Statistical Calculations:
-
 ```{r}
 trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
   mutate(response = factor(response, order = TRUE, 
@@ -34,27 +34,37 @@ trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
                            labels = c("Infographic", "News", "Government", "Scientific")))
 ```
 ## Sources
+Previous analysis of this experimental data found that multidimensional trust perception was unevenly distributed between the four high-level categories into which the MASSVis sample images were partitioned: Infographics, News, Government, and Scientific. However, it is important to note that the images in each high-level category were drawn from a relatively narrow selection of sources:
 ```{r}
 trust_2023_raw_data %>%
   select(category, source, image_new) %>%
   unique() %>%
   group_by(category, source) %>%
-  summarise(n = n())
+  summarise(n = n()) %>%
+  kbl() %>%
+  kable_styling()
 ```
 
+## Category Charateristics
+This narrow range of sources within each category suggests that this dataset may not be representative of the full breadth of each category. Moreover, participants themselves were not privy to each image's category, and so we conclude that bias related to the category itself (e.g. a general mistrust of government media) was not a substantial factor in influencing participants' subjective ratings. Because of this, we begin by further investigating the underlying features that separate these categories to try to gain insight into the specific design features that may be more directly implicated in the behavioral patterns we observe.
+
+First, we will select each image, along with its category and descriptive information (removing duplicate entries, as multiple participants saw each image):
 ```{r}
 category_data <- trust_2023_raw_data %>%
   select(c(image_new, category, vistype, starts_with("attr"))) %>%
   unique()
 ```
 
+Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
 ```{r}
-category_prelim_tree <- rpart(category ~.-image_new , data = category_data, method="class", minsplit = 8)
-```
+category_prelim_tree <- rpart(category ~.-image_new, 
+                              data = category_data, 
+                              method = "class", 
+                              minsplit = 8)
 
-```{r}
 rpart.plot(category_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+
 ## Descriminant analysis
 ```{r}
 #use 80% of dataset as training set and 20% as test set 
