@@ -275,7 +275,8 @@ strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_con
 rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
-# seperate images based on deviation from the usual:
+# seperate images based on deviation from the average trust:
+
 ```{r}
 trust_placement <- trust_2023_raw_data %>%
   group_by(name, image_new, response) %>%
