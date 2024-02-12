@@ -65,35 +65,6 @@ category_prelim_tree <- rpart(category ~.-image_new,
 rpart.plot(category_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
-## Descriminant analysis
-```{r}
-#use 80% of dataset as training set and 20% as test set 
-train <- category_data %>% dplyr::sample_frac(0.70)
-test  <- dplyr::anti_join(category_data, train, by = 'image_new')
-train <- train %>% select(-image_new)
-text <- test %>% select(-image_new)
-lda_category <- lda(category ~. , data = train)
-```
-
-```{r}
-lda_category
-```
-
-
-```{r}
-predictions_LDA = data.frame(predict(lda_category, test))
-
-preds <- cbind(test, predictions_LDA) 
-
-
-# Confusion Matrix
-cf <- caret::confusionMatrix(data=preds$class,
-                     reference=test$category)
-
-print(cf)
-
-```
-
 # Believe
 ## Are there some stimuli that got a wide range or responses?
 ```{r}
