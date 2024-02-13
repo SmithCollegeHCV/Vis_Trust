@@ -295,7 +295,7 @@ rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra
 ```
 From the decision tree we find that age and litteracy score are the biggest predictors for individual trust.
 
-In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are corrolated or if one is proxy for the other. we find that they are independent
+In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are correlated or if one is proxy for the other. we find that they are independent
 
 ```{r}
 education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
@@ -314,9 +314,8 @@ merged_individual%>%
   pivot_wider(names_from= education, values_from = n)
 ```
 
+Next we wanted to investigate the wide range range of responses every image so we group by image and we count the total of each response (Strongly Disagree, Disagree, Nor, Agree, Strongly Agree) 
 
-
-# Believe
 ## Are there some stimuli that got a wide range or responses?
 ```{r}
 trust_2023_raw_data %>%
@@ -330,40 +329,27 @@ trust_2023_raw_data %>%
   filter(total_uses > 1) %>%
   arrange(desc(total_uses))
 ```
+We then build a model predicting responses for the belief dimension and create a table to compare the predicted response and real response. we find that the model tends to have more errors around the extemeties (strongly agree and disagree).
 
-## (balanced sampling, n = 125 per group)
-Note: remember to drop session_id, etc. or you'll be waiting foreverrrrrr...
 ```{r}
 believe_data <- trust_2023_raw_data %>%
   filter(name == "I believe the visualization shows real data.") %>%
   group_by(likertscale) %>%
   sample_n(125) %>%
   ungroup() %>%
-  #mutate(age_cat = cut(age, breaks = c(-Inf,35,50,Inf), labels = c("Under 35", "36-49", "Over 50"))) %>%
   select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
             starts_with("title"), starts_with("mem"), question_type, cluster, source))
 ```
 
 ```{r}
 believe_prelim_tree <- rpart(response ~.-image_new , data = believe_data, method="class", minsplit = 4)
-```
-
-```{r}
-rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-## Next steps
-
-#. Label original believe_data with leaf node each observation falls in (maybe a `join(...)` with `predict(...)`?)
-#. `group_by` leaf node
-#. Select `unique()` images
-#. Make some kind of collage so we can look for visual trends
-#. Original images can be found at: https://people.csail.mit.edu/zoya/VisThumbnails/fullsize/
-
-```{r}
 believe_pred = predict(believe_prelim_tree, believe_data, type = "class")
 
 table(believe_pred, believe_data$response)
 ```
+To explore the reason why some images have more error we group by images and respones, convert repsonses to a numerical variable and count images that had the biggest difference between the predicted and true response. We then make a collage to looks for visual trends that influenced the error. We copy the images links from the table to find the using the originals at the following link:  https://people.csail.mit.edu/zoya/VisThumbnails/fullsize/. The collage can be found at : https://docs.google.com/document/d/1EW2BTxkq9Z1sNG2keglcOrogPAOZC7uPksYKxCZFWOg/edit?usp=sharing
+
+
 ## Predicted vs. true
 ```{r}
 believe_data_with_pred <- cbind(believe_data, pred = believe_pred) %>%
@@ -394,7 +380,11 @@ believe_data_with_pred %>%
   filter(abs(error) > 2) %>%
   arrange(image_new, desc(n))
 ```
+We notice from the collage that most of the mislabeled visualizations are horizontal bar charts, tables, and infographics. 
 
+# Anaylyze trust for every dimension: 
+
+After analyzing influence trust responses for individuals and images for all dimensions, we build decision trees to see how they affect responses for each dimension of trust. For that we filter for extreme agreement and disagreement reponse and we include reponses of only one trust dimension. Given a substantial skew towards strong agreement in responses, we deliberately chose a sample of 125 images from each agreement level to balance our dataset. In order to reduce run time we discard irrelevant columns (that are not related to image attributes or individual characteristics). We then run our decision tree based on the warangled dataset.
 
 ## Belief:
 
@@ -417,6 +407,7 @@ strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_belie
 ```{r}
 rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+We find that the significant determinants of credibility are: education level, vis type, and data literacy
 
 ##Clarity:
 
@@ -439,6 +430,8 @@ strong_clarity_prelim_tree <- rpart(response ~.-image_new , data = strongly_clea
 rpart.plot(strong_clarity_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+The significant determinants of clarity are data literacy, human recognizable objects, and vis type
+
 ##Reliability:
 
 ```{r}
@@ -459,6 +452,9 @@ strong_reliability_prelim_tree <- rpart(response ~.-image_new , data = strongly_
 ```{r}
 rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+
+The significant determinants of reliability are vis type and colorfulness
+
 
 ##Familiarity
 
@@ -481,6 +477,8 @@ strong_familiar_prelim_tree <- rpart(response ~.-image_new , data = strongly_fam
 rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+The significant determinants of familiarity are vis type and colorfulness
+
 ##Confidence:
 
 ```{r}
@@ -502,3 +500,11 @@ strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_con
 rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+The significant determinants of confidence are vis type and data literacy.
+
+From analyzing each of the 5 dimension decision trees we conlclude that the most common determinants of trust in data visualization are:
+
+- Visualization type: people tend trust bars and circles more than other types
+- Literacy: people with higher data literacy usually tend to trust visualization more
+- Colorfulness: this variable fluctuates but usually more colorful visualizations are more trustworthy
+- Education: higher education is correlate with higher trust
