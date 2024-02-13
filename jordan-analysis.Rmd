@@ -25,6 +25,7 @@ select <- dplyr::select
 ```
 
 # General Cleaning and Statistical Calculations:
+
 ```{r}
 trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
   mutate(response = factor(response, order = TRUE, 
@@ -33,8 +34,11 @@ trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
          category = factor(category, levels = c("I", "N", "G", "S"), 
                            labels = c("Infographic", "News", "Government", "Scientific")))
 ```
+
 ## Sources
+
 Previous analysis of this experimental data found that multidimensional trust perception was unevenly distributed between the four high-level categories into which the MASSVis sample images were partitioned: Infographics, News, Government, and Scientific. However, it is important to note that the images in each high-level category were drawn from a relatively narrow selection of sources:
+
 ```{r}
 trust_2023_raw_data %>%
   select(category, source, image_new) %>%
@@ -46,9 +50,11 @@ trust_2023_raw_data %>%
 ```
 
 ## Category Charateristics
+
 This narrow range of sources within each category suggests that this dataset may not be representative of the full breadth of each category. Moreover, participants themselves were not privy to each image's category, and so we conclude that bias related to the category itself (e.g. a general mistrust of government media) was not a substantial factor in influencing participants' subjective ratings. Because of this, we begin by further investigating the underlying features that separate these categories to try to gain insight into the specific design features that may be more directly implicated in the behavioral patterns we observe.
 
 First, we will select each image, along with its category and descriptive information (removing duplicate entries, as multiple participants saw each image):
+
 ```{r}
 category_data <- trust_2023_raw_data %>%
   select(c(image_new, category, vistype, starts_with("attr"))) %>%
@@ -56,6 +62,7 @@ category_data <- trust_2023_raw_data %>%
 ```
 
 Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
+
 ```{r}
 category_features <- rpart(category ~.-image_new, 
                               data = category_data, 
@@ -71,7 +78,242 @@ category_features_predictions <- predict(category_features, type = "class")
 confusionMatrix(category_features_predictions, category_data$category) 
 ```
 
-Again, we observe that classification accuracy is not uniform across categories:
+Again, we observe that classification accuracy is not uniform across categories
+
+# balanced sampling for strongly agree and disagree:
+
+Next we wanted to pinpoint the predictors relating to the visualization attributes and individual differences that tend to influence trust in certain directions. To achieve that we categorize each images in each trust dimension into 3 buckets: "higher trust", "lower trust", and "average trust". We then pick images that across all categories had overall higher or lower trust to see what image attributes influenced that placement. The idea behind this being that if people were generally skewed to trust a visualization or no it would be related to specific attributes of the image. If an images had an average overall trust it means that people had disagreement in its trustworthiness. That indicates that their choice was not just influenced by the attributes of the image but also their own personalities. We therefore run the same analysis but on individuals in place of the images.
+
+# seperate images based on deviation from the average trust:
+
+To separate images by level of overall trust their received we start by changing the response from a categorical to a quantitative variable. We than calculate the average response score of each image and then calculate the overall average and standard deviation of all image responses. We determine a higher and lower agreement as responsive that are more than one sd from the overall mean. The formula resulted from experimenting with various coefficients for the standard deviation. We determined that a higher coefficient (2sd or 3sd) produced an excessively small and inconclusive set of images, while a lower coefficient led to the selection of an excessively large set of images. Finally we calculate the general response as follow:
+- higher general agreement is when at least two dimensions have higher trust and the rest are averages
+- lower general agreement is when at least two dimensions have lower trust and the rest are averages
+- mixed general is hen we have both lower and higher responses for one image
+
+```{r}
+image_trust_placement <- trust_2023_raw_data %>%
+  group_by(name, image_new, response) %>%
+  summarise(n = n()) %>%
+  arrange(name, response) %>%
+  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
+  mutate(
+    total_responses = `Strongly Disagree` + `Disagree` + `Nor` + `Agree` + `Strongly Agree`,
+    agreement_mean = (2 * `Strongly Agree` + 1 * `Agree` + 0 * `Nor` - 1 * `Disagree` - 2 * `Strongly Disagree`) / total_responses
+  ) %>%
+  ungroup() %>%
+  group_by(name) %>%
+  mutate(
+    overall_mean = mean(agreement_mean, na.rm = TRUE),
+    overall_sd = sd(agreement_mean, na.rm = TRUE),
+    agreement_level = case_when(
+      agreement_mean > overall_mean + overall_sd ~ "higher",
+      agreement_mean < overall_mean - overall_sd ~ "lower",
+      TRUE ~ "avg"
+    )
+  ) %>%
+  select(name, image_new, agreement_level) %>%
+  mutate(
+    name = case_when(
+      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
+      name == "I believe the visualization shows real data." ~ "Credibility",
+      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
+      name == "I would rely on the facts in this Visualization." ~ "Reliability",
+      name == "I would feel confident using the information to make a decision." ~ "Confidence",
+      TRUE ~ name
+    )
+  ) %>%
+  pivot_wider(names_from = name, values_from = agreement_level) %>%
+  ungroup() %>%
+  rowwise() %>%
+  mutate(
+    General = case_when(
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "lower") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("lower", "avg")) == 5 ~ "lower",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "higher") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("higher", "avg")) == 5 ~ "higher",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "avg") >= 4 ~ "avg",
+      TRUE ~ "mixed"
+    )
+  ) %>%
+  select(image_new, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
+```
+
+We notice a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
+
+we look at the distribution of responses to double check if higher and lower have significant percentages and are higher than mixed
+
+```{r}
+image_trust_placement_percentages <- image_trust_placement %>%
+  group_by(General) %>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  mutate(percentage = count / sum(count) * 100)
+image_trust_placement_percentages
+
+```
+
+we merge our data set with original once to add the columns for the visualizations attributes
+
+# visualizing the influence of visualization's attributes on trust:
+
+```{r}
+merged_image_trust_placement <- trust_2023_raw_data %>%
+  left_join(image_trust_placement, by = "image_new") %>%
+  group_by(image_new) %>%
+    select(image_new, vistype, General, category, `attr: data-ink ratio`,
+         `attr: # distinct colors`, `attr: black&white`, 
+         `attr: visual density`, `attr: human recognizable object`, 
+         `attr: human depiction`)%>%
+
+   slice(1)  
+merged_image_trust_placement
+
+
+```
+We finally use the image attributes as predictors in our decision  tree to see what image attributes affect trust.
+
+```{r}
+vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_image_trust_placement, method="class", minsplit = 8)
+```
+
+```{r}
+rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+We find that visualization type and human recognizable objects are the biggest precitors.
+
+# seperate individuals based on deviation from the average trust:
+We repeat the same analysis as above but we group by individuals instead of images. In our merge we select columns that contain individual traits.
+
+```{r}
+individual_averages <- trust_2023_raw_data %>%
+  mutate(
+    response_numerical = case_when(
+      response == "Strongly Disagree" ~ -2,
+      response == "Disagree" ~ -1,
+      response == "Nor" ~ 0,
+      response == "Agree" ~ 1,
+      response == "Strongly Agree" ~ 2,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  group_by(name, session_id) %>%
+  summarise(
+    agreement_mean = mean(response_numerical, na.rm = TRUE),
+    agreement_sd = sd(response_numerical, na.rm = TRUE)
+  ) %>%
+  mutate(
+    name = case_when(
+      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
+      name == "I believe the visualization shows real data." ~ "Credibility",
+      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
+      name == "I would rely on the facts in this Visualization." ~ "Reliability",
+      name == "I would feel confident using the information to make a decision." ~ "Confidence",
+      TRUE ~ name
+    )
+  )
+```
+
+in the chunk below we  asses the mean agreement and sd for each individual and display it side by side to search for patterns.
+```{r}
+individual_averages_table<- individual_averages %>%
+  pivot_wider(names_from = name, values_from = c(agreement_mean, agreement_sd))%>%
+  mutate(
+    Familiarity = paste(round(agreement_mean_Familiarity, 2), "/", round(agreement_sd_Familiarity, 2)),
+    Credibility = paste(round(agreement_mean_Credibility, 2), "/", round(agreement_sd_Credibility, 2)),
+    Clarity = paste(round(agreement_mean_Clarity, 2), "/", round(agreement_sd_Clarity, 2)),
+    Reliability = paste(round(agreement_mean_Reliability, 2), "/", round(agreement_sd_Reliability, 2)),
+    Confidence = paste(round(agreement_mean_Confidence, 2), "/", round(agreement_sd_Confidence, 2))
+  ) %>%
+  select(session_id, Familiarity, Credibility, Clarity, Confidence, Reliability)
+```
+
+
+
+```{r}
+individual_placement <- individual_averages %>%
+  ungroup() %>%
+  group_by(name) %>%
+  mutate(
+    overall_mean = mean(agreement_mean, na.rm = TRUE),
+    overall_sd = sd(agreement_mean, na.rm = TRUE),
+    agreement_level = case_when(
+      agreement_mean > overall_mean + overall_sd ~ "higher",
+      agreement_mean < overall_mean - overall_sd ~ "lower",
+      TRUE ~ "avg"
+    )
+  ) %>%
+  select(name, session_id, agreement_level) %>%
+  pivot_wider(names_from = name, values_from = agreement_level) %>%
+  ungroup() %>%
+  rowwise() %>%
+  mutate(
+    General = case_when(
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "lower") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("lower", "avg")) == 5 ~ "lower",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "higher") >= 2 &
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("higher", "avg")) == 5 ~ "higher",
+      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "avg") >= 4 ~ "avg",
+      TRUE ~ "mixed"
+    )
+  ) %>%
+  select(session_id, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
+
+```
+
+```{r}
+merged_individual <- trust_2023_raw_data %>%
+  left_join(individual_placement, by = "session_id") %>%
+  group_by(session_id) %>%
+  select(session_id, General, age, sex, education, mini_score)%>%
+  filter(General %in% c("higher", "lower"))%>%
+
+  slice(1)  
+merged_individual
+
+```
+# visualizing the influence of individual differences on trust:
+
+```{r}
+individual_placement_percentages <- individual_placement %>%
+  group_by(General) %>%
+  summarise(count = n()) %>%
+  ungroup() %>%
+  mutate(percentage = count / sum(count) * 100)
+
+individual_placement_percentages
+
+```
+
+
+```{r}
+individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class", minsplit=4)
+```
+
+```{r}
+rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+From the decision tree we find that age and litteracy score are the biggest predictors for individual trust.
+
+In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are corrolated or if one is proxy for the other. we find that they are independent
+
+```{r}
+education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
+
+merged_individual <- merged_individual %>%
+  mutate(education = factor(education, levels = education_order))
+merged_individual%>%
+ggplot(aes(x=age,y=mini_score, color=General))+geom_point()+facet_grid(sex~education)
+```
+
+```{r}
+merged_individual%>%
+  mutate(over_59= age>=59 )%>%
+  group_by(sex, over_59,education)%>%
+  summarize(n=n())%>%
+  pivot_wider(names_from= education, values_from = n)
+```
+
 
 
 # Believe
@@ -153,10 +395,6 @@ believe_data_with_pred %>%
   arrange(image_new, desc(n))
 ```
 
-
-# balanced sampling for strongly agree and disagree:
-
-In the analysis below, we are using decision trees to determine which individual characteristic and visualization attributes influence whether people strongly trust or distrust that visualization for all five dimensions of trust
 
 ## Belief:
 
@@ -245,7 +483,6 @@ rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra
 
 ##Confidence:
 
-
 ```{r}
 strong_confidence_data <- trust_2023_raw_data %>%
   filter(name == "I would feel confident using the information to make a decision." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
@@ -264,222 +501,4 @@ strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_con
 ```{r}
 rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
-
-# seperate images based on deviation from the average trust:
-
-```{r}
-image_trust_placement <- trust_2023_raw_data %>%
-  group_by(name, image_new, response) %>%
-  summarise(n = n()) %>%
-  arrange(name, response) %>%
-  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
-  mutate(
-    total_responses = `Strongly Disagree` + `Disagree` + `Nor` + `Agree` + `Strongly Agree`,
-    agreement_mean = (2 * `Strongly Agree` + 1 * `Agree` + 0 * `Nor` - 1 * `Disagree` - 2 * `Strongly Disagree`) / total_responses
-  ) %>%
-  ungroup() %>%
-  group_by(name) %>%
-  mutate(
-    overall_mean = mean(agreement_mean, na.rm = TRUE),
-    overall_sd = sd(agreement_mean, na.rm = TRUE),
-    agreement_level = case_when(
-      agreement_mean > overall_mean + overall_sd ~ "higher",
-      agreement_mean < overall_mean - overall_sd ~ "lower",
-      TRUE ~ "avg"
-    )
-  ) %>%
-  select(name, image_new, agreement_level) %>%
-  mutate(
-    name = case_when(
-      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
-      name == "I believe the visualization shows real data." ~ "Credibility",
-      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
-      name == "I would rely on the facts in this Visualization." ~ "Reliability",
-      name == "I would feel confident using the information to make a decision." ~ "Confidence",
-      TRUE ~ name
-    )
-  ) %>%
-  pivot_wider(names_from = name, values_from = agreement_level) %>%
-  ungroup() %>%
-  rowwise() %>%
-  mutate(
-    General = case_when(
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "lower") >= 2 &
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("lower", "avg")) == 5 ~ "lower",
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "higher") >= 2 &
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("higher", "avg")) == 5 ~ "higher",
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "avg") >= 4 ~ "avg",
-      TRUE ~ "mixed"
-    )
-  ) %>%
-  select(image_new, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
-```
-
-There is a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
-
-```{r}
-image_trust_placement_percentages <- image_trust_placement %>%
-  group_by(General) %>%
-  summarise(count = n()) %>%
-  ungroup() %>%
-  mutate(percentage = count / sum(count) * 100)
-image_trust_placement_percentages
-
-```
-
-# visualizing the influence of visualization's attributes on trust:
-
-```{r}
-merged_image_trust_placement <- trust_2023_raw_data %>%
-  left_join(image_trust_placement, by = "image_new") %>%
-  group_by(image_new) %>%
-    select(image_new, vistype, General, category, `attr: data-ink ratio`,
-         `attr: # distinct colors`, `attr: black&white`, 
-         `attr: visual density`, `attr: human recognizable object`, 
-         `attr: human depiction`)%>%
-
-   slice(1)  
-merged_image_trust_placement
-
-
-```
-
-
-```{r}
-vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_image_trust_placement, method="class", minsplit = 8)
-```
-
-```{r}
-rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-
-# seperate individuals based on deviation from the average trust:
-
-```{r}
-individual_averages <- trust_2023_raw_data %>%
-  mutate(
-    response_numerical = case_when(
-      response == "Strongly Disagree" ~ -2,
-      response == "Disagree" ~ -1,
-      response == "Nor" ~ 0,
-      response == "Agree" ~ 1,
-      response == "Strongly Agree" ~ 2,
-      TRUE ~ NA_real_
-    )
-  ) %>%
-  group_by(name, session_id) %>%
-  summarise(
-    agreement_mean = mean(response_numerical, na.rm = TRUE),
-    agreement_sd = sd(response_numerical, na.rm = TRUE)
-  ) %>%
-  mutate(
-    name = case_when(
-      name == "I am familiar with the topic or data this visualization presents." ~ "Familiarity",
-      name == "I believe the visualization shows real data." ~ "Credibility",
-      name == "I understand what this visualization is trying to tell me." ~ "Clarity",
-      name == "I would rely on the facts in this Visualization." ~ "Reliability",
-      name == "I would feel confident using the information to make a decision." ~ "Confidence",
-      TRUE ~ name
-    )
-  )
-```
-
-```{r}
-individual_averages_table<- individual_averages %>%
-  pivot_wider(names_from = name, values_from = c(agreement_mean, agreement_sd))%>%
-  mutate(
-    Familiarity = paste(round(agreement_mean_Familiarity, 2), "/", round(agreement_sd_Familiarity, 2)),
-    Credibility = paste(round(agreement_mean_Credibility, 2), "/", round(agreement_sd_Credibility, 2)),
-    Clarity = paste(round(agreement_mean_Clarity, 2), "/", round(agreement_sd_Clarity, 2)),
-    Reliability = paste(round(agreement_mean_Reliability, 2), "/", round(agreement_sd_Reliability, 2)),
-    Confidence = paste(round(agreement_mean_Confidence, 2), "/", round(agreement_sd_Confidence, 2))
-  ) %>%
-  select(session_id, Familiarity, Credibility, Clarity, Confidence, Reliability)
-```
-
-
-
-```{r}
-individual_placement <- individual_averages %>%
-  ungroup() %>%
-  group_by(name) %>%
-  mutate(
-    overall_mean = mean(agreement_mean, na.rm = TRUE),
-    overall_sd = sd(agreement_mean, na.rm = TRUE),
-    agreement_level = case_when(
-      agreement_mean > overall_mean + overall_sd ~ "higher",
-      agreement_mean < overall_mean - overall_sd ~ "lower",
-      TRUE ~ "avg"
-    )
-  ) %>%
-  select(name, session_id, agreement_level) %>%
-  pivot_wider(names_from = name, values_from = agreement_level) %>%
-  ungroup() %>%
-  rowwise() %>%
-  mutate(
-    General = case_when(
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "lower") >= 2 &
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("lower", "avg")) == 5 ~ "lower",
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "higher") >= 2 &
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) %in% c("higher", "avg")) == 5 ~ "higher",
-      sum(c(Familiarity, Credibility, Clarity, Confidence, Reliability) == "avg") >= 4 ~ "avg",
-      TRUE ~ "mixed"
-    )
-  ) %>%
-  select(session_id, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
-
-```
-
-```{r}
-merged_individual <- trust_2023_raw_data %>%
-  left_join(individual_placement, by = "session_id") %>%
-  group_by(session_id) %>%
-  select(session_id, General, age, sex, education, mini_score)%>%
-  filter(General %in% c("higher", "lower"))%>%
-
-  slice(1)  
-merged_individual
-
-```
-# visualizing the influence of individual differences on trust:
-
-```{r}
-individual_placement_percentages <- individual_placement %>%
-  group_by(General) %>%
-  summarise(count = n()) %>%
-  ungroup() %>%
-  mutate(percentage = count / sum(count) * 100)
-
-individual_placement_percentages
-
-```
-
-
-```{r}
-individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class", minsplit=4)
-```
-
-```{r}
-rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-
-Here we are trying to visualize how higher and lower trust is distributed by visual literacy, sex, and education.
-
-```{r}
-education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
-
-merged_individual <- merged_individual %>%
-  mutate(education = factor(education, levels = education_order))
-merged_individual%>%
-ggplot(aes(x=age,y=mini_score, color=General))+geom_point()+facet_grid(sex~education)
-```
-
-```{r}
-merged_individual%>%
-  mutate(over_59= age>=59 )%>%
-  group_by(sex, over_59,education)%>%
-  summarize(n=n())%>%
-  pivot_wider(names_from= education, values_from = n)
-```
-
 
