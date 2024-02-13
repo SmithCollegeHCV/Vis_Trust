@@ -352,6 +352,7 @@ vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_imag
 ```{r}
 rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+
 # seperate individuals based on deviation from the average trust:
 
 ```{r}
