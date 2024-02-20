@@ -20,6 +20,7 @@ library(caret)
 library(ztable)
 library(GGally)
 library(tidyr)
+library(kableExtra)
 select <- dplyr::select
 ```
 
@@ -33,14 +34,26 @@ trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
          category = factor(category, levels = c("I", "N", "G", "S"), 
                            labels = c("Infographic", "News", "Government", "Scientific")))
 ```
+
 ## Sources
+
+Previous analysis of this experimental data found that multidimensional trust perception was unevenly distributed between the four high-level categories into which the MASSVis sample images were partitioned: Infographics, News, Government, and Scientific. However, it is important to note that the images in each high-level category were drawn from a relatively narrow selection of sources:
+
 ```{r}
 trust_2023_raw_data %>%
   select(category, source, image_new) %>%
   unique() %>%
   group_by(category, source) %>%
-  summarise(n = n())
+  summarise(n = n()) %>%
+  kbl() %>%
+  kable_styling()
 ```
+
+## Category Charateristics
+
+This narrow range of sources within each category suggests that this dataset may not be representative of the full breadth of each category. Moreover, participants themselves were not privy to each image's category, and so we conclude that bias related to the category itself (e.g. a general mistrust of government media) was not a substantial factor in influencing participants' subjective ratings. Because of this, we begin by further investigating the underlying features that separate these categories to try to gain insight into the specific design features that may be more directly implicated in the behavioral patterns we observe.
+
+First, we will select each image, along with its category and descriptive information (removing duplicate entries, as multiple participants saw each image):
 
 ```{r}
 category_data <- trust_2023_raw_data %>%
@@ -48,128 +61,35 @@ category_data <- trust_2023_raw_data %>%
   unique()
 ```
 
+Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
+
 ```{r}
-category_prelim_tree <- rpart(category ~.-image_new , data = category_data, method="class", minsplit = 8)
+category_features <- rpart(category ~.-image_new, 
+                              data = category_data, 
+                              method = "class", 
+                              minsplit = 8)
+
+rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
+```
+The confusion matrix for this tree is as follows:
+```{r}
+category_features_predictions <- predict(category_features, type = "class")
+
+confusionMatrix(category_features_predictions, category_data$category) 
 ```
 
-```{r}
-rpart.plot(category_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-## Descriminant analysis
-```{r}
-#use 80% of dataset as training set and 20% as test set 
-train <- category_data %>% dplyr::sample_frac(0.70)
-test  <- dplyr::anti_join(category_data, train, by = 'image_new')
-train <- train %>% select(-image_new)
-text <- test %>% select(-image_new)
-lda_category <- lda(category ~. , data = train)
-```
-
-```{r}
-lda_category
-```
-
-
-```{r}
-predictions_LDA = data.frame(predict(lda_category, test))
-
-preds <- cbind(test, predictions_LDA) 
-
-
-# Confusion Matrix
-cf <- caret::confusionMatrix(data=preds$class,
-                     reference=test$category)
-
-print(cf)
-
-```
-
-# Believe
-## Are there some stimuli that got a wide range or responses?
-```{r}
-trust_2023_raw_data %>%
-  filter(name == "I believe the visualization shows real data.") %>%
-  group_by(image_new, response) %>%
-  summarise(n= n()) %>%
-  arrange(response) %>%
-  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
-  rowwise() %>%
-  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
-  filter(total_uses > 1) %>%
-  arrange(desc(total_uses))
-```
-
-## (balanced sampling, n = 125 per group)
-Note: remember to drop session_id, etc. or you'll be waiting foreverrrrrr...
-```{r}
-believe_data <- trust_2023_raw_data %>%
-  filter(name == "I believe the visualization shows real data.") %>%
-  group_by(likertscale) %>%
-  sample_n(125) %>%
-  ungroup() %>%
-  #mutate(age_cat = cut(age, breaks = c(-Inf,35,50,Inf), labels = c("Under 35", "36-49", "Over 50"))) %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
-```
-
-```{r}
-believe_prelim_tree <- rpart(response ~.-image_new , data = believe_data, method="class", minsplit = 4)
-```
-
-```{r}
-rpart.plot(believe_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-## Next steps
-
-#. Label original believe_data with leaf node each observation falls in (maybe a `join(...)` with `predict(...)`?)
-#. `group_by` leaf node
-#. Select `unique()` images
-#. Make some kind of collage so we can look for visual trends
-#. Original images can be found at: https://people.csail.mit.edu/zoya/VisThumbnails/fullsize/
-
-```{r}
-believe_pred = predict(believe_prelim_tree, believe_data, type = "class")
-
-table(believe_pred, believe_data$response)
-```
-## Predicted vs. true
-```{r}
-believe_data_with_pred <- cbind(believe_data, pred = believe_pred) %>%
-  mutate(pred = factor(pred, order = TRUE, 
-                           levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")))
-```  
-
-## Are there some stimuli that got a wide range or responses?
-```{r}
-believe_data_with_pred %>%
-  group_by(image_new, response) %>%
-  summarise(n= n()) %>%
-  arrange(response) %>%
-  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
-  rowwise() %>%
-  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
-  filter(total_uses > 1) %>%
-  arrange(desc(total_uses))
-```
-
-## Images with largest errors
-```{r}
-believe_data_with_pred %>%
-  group_by(image_new, response) %>%
-  summarise(n= n(),
-            pred = pred) %>%
-  mutate(error = as.numeric(response) - as.numeric(pred)) %>%
-  filter(abs(error) > 2) %>%
-  arrange(image_new, desc(n))
-```
-
+Again, we observe that classification accuracy is not uniform across categories
 
 # 2. balanced sampling for strongly agree and disagree:
 
-In the analysis below, we are using decision trees to determine which individual characteristic and visualization attributes influence whether people strongly trust or distrust that visualization for all five dimensions of trust
+Next we wanted to pinpoint the predictors relating to the visualization attributes and individual differences that tend to influence trust in certain directions. To achieve that we categorize each images in each trust dimension into 3 buckets: "higher trust", "lower trust", and "average trust". We then pick images that across all categories had overall higher or lower trust to see what image attributes influenced that placement. The idea behind this being that if people were generally skewed to trust a visualization or not it would be related to the specific attributes of the image rather than other factors. If an images had an average overall trust it means that people had disagreement in its trustworthiness. That indicates that their choice was not just influenced by the attributes of the image but also their own personalities. We therefore run the same analysis on individuals instead of the images.
 
-## Belief:
+# a. seperate images based on deviation from the average trust:
 
+To separate images by the level of overall trust they received we start by changing "response" from a categorical to quantitative variable. We then calculate the average response score of each image and the overall average and standard deviation of all image responses. An agreement avg is higher or lower if it is more than one sd from the overall mean. The formula resulted from experimenting with various coefficients for the standard deviation. We determined that a higher coefficient (2sd or 3sd) produced an excessively small and inconclusive set of images, while a lower coefficient led to the selection of an excessively large set of images. Finally we calculate the general response as follow:
+- higher general agreement is when at least two dimensions have higher trust and the rest are averages
+- lower general agreement is when at least two dimensions have lower trust and the rest are averages
+- mixed general agreement is when we have both lower and higher responses for one image
 
 ```{r}
 strongly_believe_data <- trust_2023_raw_data %>%
@@ -281,7 +201,7 @@ rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, ext
 In the analysis below, we separate images based that have general higher or lower trust across all five dimensions, to see which of the attributes contribute to that placement of trust. 
 
 ```{r}
-trust_placement_image <- trust_2023_raw_data %>%
+image_trust_placement <- trust_2023_raw_data %>%
   group_by(name, image_new, response) %>%
   summarise(n = n()) %>%
   arrange(name, response) %>%
@@ -328,22 +248,27 @@ trust_placement_image <- trust_2023_raw_data %>%
   select(image_new, General, Familiarity, Credibility, Clarity, Confidence, Reliability)
 ```
 
-There is a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
+We notice a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
+
+We look at the distribution of responses to make sure that higher and lower have significant percentages and are greater than mixed
 
 ```{r}
-trust_placement_image_percentages <- trust_placement_image %>%
+image_trust_placement_percentages <- image_trust_placement %>%
   group_by(General) %>%
   summarise(count = n()) %>%
   ungroup() %>%
   mutate(percentage = count / sum(count) * 100)
-trust_placement_image_percentages
+image_trust_placement_percentages
 
 ```
 
-# attr diff
+We merge our image_trust_placement dataset with the raw one to select and add the image attributes columns
+
+# b. Visualizing the influence of visualization's attributes on trust:
+
 ```{r}
-merged_vis <- trust_2023_raw_data %>%
-  left_join(trust_placement_image, by = "image_new") %>%
+merged_image_trust_placement <- trust_2023_raw_data %>%
+  left_join(image_trust_placement, by = "image_new") %>%
   group_by(image_new) %>%
     select(image_new, vistype, General, category, `attr: data-ink ratio`,
          `attr: # distinct colors`, `attr: black&white`, 
@@ -351,21 +276,24 @@ merged_vis <- trust_2023_raw_data %>%
          `attr: human depiction`)%>%
 
    slice(1)  
-merged_vis
+merged_image_trust_placement
 
 
 ```
-
+We finally use the image attributes as predictors in our decision tree to see how they affect trust.
 
 ```{r}
-vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_vis, method="class", minsplit = 8)
+vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_image_trust_placement, method="class", minsplit = 8)
 ```
 
 ```{r}
 rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+We find that visualization type and human recognizable objects are the biggest predictors of trust.
 
-# individual diff
+# Seperate individuals based on deviation from the average trust:
+
+In the chunk below we asses the mean agreement and sd for each individual
 
 ```{r}
 individual_averages <- trust_2023_raw_data %>%
@@ -396,6 +324,8 @@ individual_averages <- trust_2023_raw_data %>%
   )
 ```
 
+We then display it side by side to search for patterns.
+
 ```{r}
 individual_averages_table<- individual_averages %>%
   pivot_wider(names_from = name, values_from = c(agreement_mean, agreement_sd))%>%
@@ -409,7 +339,7 @@ individual_averages_table<- individual_averages %>%
   select(session_id, Familiarity, Credibility, Clarity, Confidence, Reliability)
 ```
 
-
+We repeat the same analysis in part a but we group by individuals instead of images. In our merge we select columns that contain individual traits.
 
 ```{r}
 individual_placement <- individual_averages %>%
@@ -453,6 +383,8 @@ merged_individual <- trust_2023_raw_data %>%
 merged_individual
 
 ```
+# visualizing the influence of individual differences on trust:
+
 ```{r}
 individual_placement_percentages <- individual_placement %>%
   group_by(General) %>%
@@ -464,6 +396,7 @@ individual_placement_percentages
 
 ```
 
+
 ```{r}
 individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_individual, method="class", minsplit=4)
 ```
@@ -471,6 +404,9 @@ individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_indivi
 ```{r}
 rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+From the decision tree we find that age and literacy score are the biggest predictors for individual trust.
+
+In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are correlated or if one is proxy for the others. We find that they are independent. 
 
 ```{r}
 education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
@@ -489,4 +425,192 @@ merged_individual%>%
   pivot_wider(names_from= education, values_from = n)
 ```
 
+Next we wanted to investigate stimuli causing the wide range of responses for every visualization so we group by image and we count the total of each response (Strongly Disagree, Disagree, Nor, Agree, Strongly Agree) 
 
+## Are there some stimuli that got a wide range or responses?
+```{r}
+trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data.") %>%
+  group_by(image_new, response) %>%
+  summarise(n= n()) %>%
+  arrange(response) %>%
+  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
+  rowwise() %>%
+  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
+  filter(total_uses > 1) %>%
+  arrange(desc(total_uses))
+```
+We then build a model predicting responses for the belief dimension and create a table to compare the predicted response and real response. We find that the model tends to have more errors around the extremities (strongly agree and disagree).
+
+```{r}
+believe_data <- trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data.") %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+```{r}
+believe_prelim_tree <- rpart(response ~.-image_new , data = believe_data, method="class", minsplit = 4)
+believe_pred = predict(believe_prelim_tree, believe_data, type = "class")
+
+table(believe_pred, believe_data$response)
+```
+To explore the reason why some images have more errors we group by images and responses, convert responses to a numerical variable and count images that had the biggest difference between the predicted and true response. We then make a collage to look for visual trends that influenced the error. We copy the image links from the table to find the originals at the following link:  https://people.csail.mit.edu/zoya/VisThumbnails/fullsize/. The collage can be found at : https://docs.google.com/document/d/1EW2BTxkq9Z1sNG2keglcOrogPAOZC7uPksYKxCZFWOg/edit?usp=sharing
+
+
+## Predicted vs. true
+```{r}
+believe_data_with_pred <- cbind(believe_data, pred = believe_pred) %>%
+  mutate(pred = factor(pred, order = TRUE, 
+                           levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")))
+```  
+
+## Are there some stimuli that got a wide range or responses?
+```{r}
+believe_data_with_pred %>%
+  group_by(image_new, response) %>%
+  summarise(n= n()) %>%
+  arrange(response) %>%
+  pivot_wider(names_from = response, values_from = n, values_fill = 0) %>%
+  rowwise() %>%
+  mutate(total_uses = sum(`Strongly Disagree`, `Disagree`, `Nor`, `Agree`, `Strongly Agree`)) %>%
+  filter(total_uses > 1) %>%
+  arrange(desc(total_uses))
+```
+
+## Images with largest errors
+```{r}
+believe_data_with_pred %>%
+  group_by(image_new, response) %>%
+  summarise(n= n(),
+            pred = pred) %>%
+  mutate(error = as.numeric(response) - as.numeric(pred)) %>%
+  filter(abs(error) > 2) %>%
+  arrange(image_new, desc(n))
+```
+We notice from the collage that most of the mislabeled visualizations are horizontal bar charts, tables, and infographics. 
+
+# Anaylyze trust for every dimension: 
+
+After analyzing trust responses for individuals and images for all dimensions, we build decision trees to see the main predictors for each dimension of trust. For that we filter by extreme agreement and disagreement responses and trust dimension. Given the substantial skew towards strong agreement in responses, we deliberately chose a sample of 125 images from each agreement level to balance our dataset. In order to reduce run time we discard irrelevant columns (that are not related to image attributes or individual characteristics). We then run our decision tree based on the wrangled dataset.
+
+## Belief:
+
+```{r}
+strongly_believe_data <- trust_2023_raw_data %>%
+  filter(name == "I believe the visualization shows real data." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+```{r}
+strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_believe_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+We find that the significant determinants of credibility are: vis type, colorfulness, and education level
+
+##Clarity:
+
+```{r}
+strongly_clear_data <- trust_2023_raw_data %>%
+  filter(name == "I understand what this visualization is trying to tell me." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+```{r}
+strong_clarity_prelim_tree <- rpart(response ~.-image_new , data = strongly_clear_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_clarity_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+The significant determinants of clarity are data literacy, human recognizable objects, and vis type
+
+##Reliability:
+
+```{r}
+strongly_reliable_data <- trust_2023_raw_data %>%
+  filter(name == "I would rely on the facts in this Visualization." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source)) 
+```
+
+```{r}
+strong_reliability_prelim_tree <- rpart(response ~.-image_new , data = strongly_reliable_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+The significant determinants of reliability are vis type and age
+
+##Familiarity
+
+```{r}
+strongly_familiar_data <- trust_2023_raw_data %>%
+  filter(name == "I am familiar with the topic or data this visualization presents." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale)%>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+```{r}
+strong_familiar_prelim_tree <- rpart(response ~.-image_new , data = strongly_familiar_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+The significant determinants of familiarity are age and data literacy
+
+##Confidence:
+
+```{r}
+strong_confidence_data <- trust_2023_raw_data %>%
+  filter(name == "I would feel confident using the information to make a decision." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
+  group_by(likertscale) %>%
+  sample_n(125) %>%
+  ungroup() %>%
+  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
+            starts_with("title"), starts_with("mem"), question_type, cluster, source))
+```
+
+
+```{r}
+strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_confidence_data, method="class")
+```
+
+```{r}
+rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+The significant determinants of confidence are vis type and age.
+
+From analyzing each of the 5 dimensions of trust's decision trees we conclude that the most common determinants of trust in data visualizations are:
+
+- Visualization type: people tend to trust bars and circles more than other types
+- Data Literacy: people with higher data literacy usually tend to trust visualizations more
+- Colorfulness: this variable fluctuates but usually more colorful visualizations are more trustworthy
+- Education: higher education is usually correlated with higher trust
