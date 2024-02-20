@@ -21,6 +21,7 @@ library(ztable)
 library(GGally)
 library(tidyr)
 library(kableExtra)
+library(randomForest)
 select <- dplyr::select
 ```
 
@@ -61,6 +62,7 @@ category_data <- trust_2023_raw_data %>%
   unique()
 ```
 
+
 Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
 
 ```{r}
@@ -71,6 +73,13 @@ category_features <- rpart(category ~.-image_new,
 
 rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting. 
+
+```{r}
+category_rf <- randomForest(category ~.-image_new, data = category_data, mtry= 6, importance = TRUE)
+varImpPlot(category_rf)
+```
+
 The confusion matrix for this tree is as follows:
 ```{r}
 category_features_predictions <- predict(category_features, type = "class")
@@ -505,3 +514,9 @@ From analyzing each of the 5 dimensions of trust's decision trees we conclude th
 - Data Literacy: people with higher data literacy usually tend to trust visualizations more
 - Colorfulness: this variable fluctuates but usually more colorful visualizations are more trustworthy
 - Education: higher education is usually correlated with higher trust
+
+
+what happens when we have a combination of indiv diff and vis attributes who wins between the two
+try to select more and find if we're overfitting. 
+
+after each tree make a random forest to confirm. make note if there is anything out of ordinary between trees and random forests. 
