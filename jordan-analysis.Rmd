@@ -23,7 +23,7 @@ library(tidyr)
 select <- dplyr::select
 ```
 
-# General Cleaning and Statistical Calculations:
+# 1. General Cleaning and Statistical Calculations:
 
 ```{r}
 trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
@@ -164,7 +164,7 @@ believe_data_with_pred %>%
 ```
 
 
-# balanced sampling for strongly agree and disagree:
+# 2. balanced sampling for strongly agree and disagree:
 
 In the analysis below, we are using decision trees to determine which individual characteristic and visualization attributes influence whether people strongly trust or distrust that visualization for all five dimensions of trust
 
@@ -274,10 +274,14 @@ strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_con
 ```{r}
 rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+# 3. Find General Higher or Lower Trust for Images and Individuals 
 
 # seperate images based on deviation from the usual:
+
+In the analysis below, we separate images based that have general higher or lower trust across all five dimensions, to see which of the attributes contribute to that placement of trust. 
+
 ```{r}
-trust_placement <- trust_2023_raw_data %>%
+trust_placement_image <- trust_2023_raw_data %>%
   group_by(name, image_new, response) %>%
   summarise(n = n()) %>%
   arrange(name, response) %>%
@@ -327,19 +331,19 @@ trust_placement <- trust_2023_raw_data %>%
 There is a lack of consistent patterns where trust dimensions exhibit opposing trends. The trust dimensions tend to move collectively, either increasing or decreasing. When one dimension is higher, others are divided between 'average' and 'higher.' Conversely, if one dimension is lower, the remaining dimensions tend to be split between 'average' and 'lower.' Exceptions exist where 2 to 3 dimensions may be higher, one lower, and the rest average, or vice versa.
 
 ```{r}
-trust_placement_percentages <- trust_placement %>%
+trust_placement_image_percentages <- trust_placement_image %>%
   group_by(General) %>%
   summarise(count = n()) %>%
   ungroup() %>%
   mutate(percentage = count / sum(count) * 100)
-trust_placement_percentages
+trust_placement_image_percentages
 
 ```
 
 # attr diff
 ```{r}
 merged_vis <- trust_2023_raw_data %>%
-  left_join(trust_placement, by = "image_new") %>%
+  left_join(trust_placement_image, by = "image_new") %>%
   group_by(image_new) %>%
     select(image_new, vistype, General, category, `attr: data-ink ratio`,
          `attr: # distinct colors`, `attr: black&white`, 
