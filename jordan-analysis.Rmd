@@ -73,8 +73,7 @@ category_features <- rpart(category ~.-image_new,
 
 rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
 ```
-We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting. 
-
+We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting.  
 ```{r}
 category_rf <- randomForest(category ~.-image_new, data = category_data, mtry= 8, importance = TRUE) ## mtry number of columns - 1
 varImpPlot(category_rf)
