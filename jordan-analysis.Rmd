@@ -341,6 +341,7 @@ general_image_rf <- randomForest(General ~.-image_new -category, data = merged_i
 varImpPlot(general_image_rf)
 
 ```
+Vistype is an important predictor for accuracy, purity, and the desicion tree therefore the tree is representative.
 # Seperate individuals based on deviation from the average trust:
 
 In the chunk below we asses the mean agreement and sd for each individual
@@ -455,13 +456,15 @@ individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_indivi
 rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+From the decision tree we find that age and literacy score are the biggest predictors for individual trust.
+
 ```{r}
 merged_individual$General = factor(merged_individual$General) 
 general_individual_rf <- randomForest(General ~.-session_id, data = merged_individual, mtry= 5, importance = TRUE) 
 varImpPlot(general_individual_rf)
 
 ```
-From the decision tree we find that age and literacy score are the biggest predictors for individual trust.
+There is no agreement between accuracy and purity which indicates overfitting in our tree
 
 In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are correlated or if one is proxy for the others. We find that they are independent. 
 
@@ -574,7 +577,15 @@ strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_belie
 rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
-We find that the significant determinants of credibility are: vis type, colorfulness, and education level
+We find that the significant determinants of credibility are: vis type, colorfulness, and data literacy
+
+```{r}
+strongly_believe_data$response = factor(strongly_believe_data$response) 
+belief_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) 
+varImpPlot(belief_rf)
+```
+We use random forest to see what predictors affect accuracy and purity. Data literacy and vistype are the most important feature and this confirms that the tree is not over_fitting. We find that age doesn't appear to be the strong predictor in the tree but is the most important factor in purity.
+
 
 ##Clarity:
 
@@ -595,8 +606,15 @@ strong_clarity_prelim_tree <- rpart(response ~.-image_new , data = strongly_clea
 ```{r}
 rpart.plot(strong_clarity_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
-
 The significant determinants of clarity are data literacy, human recognizable objects, and vis type
+
+```{r}
+strongly_clear_data$response = factor(strongly_clear_data$response) 
+clarity_rf <- randomForest(response ~.-image_new, data = strongly_clear_data, mtry= 12, importance = TRUE) 
+varImpPlot(clarity_rf)
+```
+Data literacy and human recognizable object are the most important feature and this confirms that the tree is not over_fitting. We find that age is not a predictor in the tree but is an important factor in purity.
+
 
 ##Reliability:
 
@@ -620,6 +638,16 @@ rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, ex
 
 The significant determinants of reliability are vis type and age
 
+```{r}
+strongly_reliable_data$response = factor(strongly_reliable_data$response) 
+reliability_rf <- randomForest(response ~.-image_new, data = strongly_reliable_data, mtry= 12, importance = TRUE) 
+varImpPlot(reliability_rf)
+```
+- Vistype in an important factor both in the tree for accuracy and purity. 
+- Age appears to be important in the tree for purity but not for accuracy
+- in vice versa for attribute black white
+
+
 ##Familiarity
 
 ```{r}
@@ -641,6 +669,13 @@ rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra
 ```
 
 The significant determinants of familiarity are age and data literacy
+
+```{r}
+strongly_familiar_data$response = factor(strongly_familiar_data$response) 
+familiarity_rf <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE) 
+varImpPlot(familiarity_rf)
+```
+- tree is over-fitting because the most important factors for accuracy, ie human depiction and data in ratio, are not significant predictor in the tree
 
 ##Confidence:
 
@@ -664,6 +699,13 @@ rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, ext
 ```
 
 The significant determinants of confidence are vis type and age.
+
+```{r}
+strong_confidence_data$response = factor(strong_confidence_data$response) 
+confidence_rf <- randomForest(response ~.-image_new, data = strong_confidence_data, mtry= 12, importance = TRUE) 
+varImpPlot(confidence_rf)
+```
+- we suspect that it is over fitted because vis type and age are important predictors in the tree bu tnot in accuracy.
 
 From analyzing each of the 5 dimensions of trust's decision trees we conclude that the most common determinants of trust in data visualizations are:
 
