@@ -74,6 +74,7 @@ category_features <- rpart(category ~.-image_new,
 rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting.  
+
 ```{r}
 category_rf <- randomForest(category ~.-image_new, data = category_data, mtry= 8, importance = TRUE) ## mtry number of columns - 1
 varImpPlot(category_rf)
@@ -98,149 +99,6 @@ To separate images by the level of overall trust they received we start by chang
 - higher general agreement is when at least two dimensions have higher trust and the rest are averages
 - lower general agreement is when at least two dimensions have lower trust and the rest are averages
 - mixed general agreement is when we have both lower and higher responses for one image
-
-```{r}
-strongly_believe_data <- trust_2023_raw_data %>%
-  filter(name == "I believe the visualization shows real data." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) %>%
-  sample_n(125) %>%
-  ungroup() %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
-```
-
-
-```{r}
-strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_believe_data, method="class")
-```
-
-```{r}
-rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-```{r}
-strongly_believe_data$response = factor(strongly_believe_data$response) 
-belief_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) 
-varImpPlot(belief_rf)
-```
-
-
-
-##Clarity:
-
-```{r}
-strongly_clear_data <- trust_2023_raw_data %>%
-  filter(name == "I understand what this visualization is trying to tell me." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) %>%
-  sample_n(125) %>%
-  ungroup() %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
-```
-
-
-```{r}
-strong_clarity_prelim_tree <- rpart(response ~.-image_new, data = strongly_clear_data, method="class")
-```
-
-```{r}
-rpart.plot(strong_clarity_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-```{r}
-strongly_clear_data$response = factor(strongly_clear_data$response) 
-clear_rf <- randomForest(response ~.-image_new, data = strongly_clear_data, mtry= 12, importance = TRUE) 
-varImpPlot(clear_rf)
-```
-
-
-##Reliability:
-
-```{r}
-strongly_reliable_data <- trust_2023_raw_data %>%
-  filter(name == "I would rely on the facts in this Visualization." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) %>%
-  sample_n(125) %>%
-  ungroup() %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source)) 
-```
-
-
-```{r}
-strong_reliability_prelim_tree <- rpart(response ~.-image_new , data = strongly_reliable_data, method="class")
-```
-
-```{r}
-rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-```{r}
-strongly_reliable_data$response = factor(strongly_reliable_data$response) 
-reliable_rf <- randomForest(response ~.-image_new, data = strongly_reliable_data, mtry= 12, importance = TRUE) 
-varImpPlot(reliable_rf)
-```
-
-
-##Familiarity
-
-```{r}
-strongly_familiar_data <- trust_2023_raw_data %>%
-  filter(name == "I am familiar with the topic or data this visualization presents." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale)%>%
-  sample_n(125) %>%
-  ungroup() %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
-```
-
-
-```{r}
-strong_familiar_prelim_tree <- rpart(response ~.-image_new , data = strongly_familiar_data, method="class")
-```
-
-```{r}
-rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-```{r}
-strongly_familiar_data$response = factor(strongly_familiar_data$response) 
-familiar_rf <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE) 
-varImpPlot(familiar_rf)
-```
-
-```{r}
-strongly_familiar_data$response = factor(strongly_familiar_data$response) 
-familiar_rf <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE) 
-varImpPlot(familiar_rf)
-```
-
-##Confidence:
-
-
-```{r}
-strong_confidence_data <- trust_2023_raw_data %>%
-  filter(name == "I would feel confident using the information to make a decision." & (response == "Strongly Agree" | response == "Strongly Disagree")) %>%
-  group_by(likertscale) %>%
-  sample_n(125) %>%
-  ungroup() %>%
-  select(-c(...1, name, session_id, image, subfolder, category, likertscale, time,
-            starts_with("title"), starts_with("mem"), question_type, cluster, source))
-```
-
-
-```{r}
-strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_confidence_data, method="class")
-```
-
-```{r}
-rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
-```
-```{r}
-strong_confidence_data$response = factor(strong_confidence_data$response) 
-confidence_rf <- randomForest(response ~.-image_new, data = strong_confidence_data, mtry= 12, importance = TRUE) 
-varImpPlot(confidence_rf)
-```
-
-# 3. Find General Higher or Lower Trust for Images and Individuals 
-
-# seperate images based on deviation from the usual:
 
 In the analysis below, we separate images based that have general higher or lower trust across all five dimensions, to see which of the attributes contribute to that placement of trust. 
 
@@ -553,7 +411,7 @@ believe_data_with_pred %>%
 ```
 We notice from the collage that most of the mislabeled visualizations are horizontal bar charts, tables, and infographics. 
 
-# Anaylyze trust for every dimension: 
+# 3. Anaylyze trust for every dimension: 
 
 After analyzing trust responses for individuals and images for all dimensions, we build decision trees to see the main predictors for each dimension of trust. For that we filter by extreme agreement and disagreement responses and trust dimension. Given the substantial skew towards strong agreement in responses, we deliberately chose a sample of 125 images from each agreement level to balance our dataset. In order to reduce run time we discard irrelevant columns (that are not related to image attributes or individual characteristics). We then run our decision tree based on the wrangled dataset.
 
