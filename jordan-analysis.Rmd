@@ -303,8 +303,8 @@ rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 We find that visualization type and human recognizable objects are the biggest predictors of trust.
 ```{r}
 merged_image_trust_placement$General = factor(merged_image_trust_placement$General) 
-response_rf <- randomForest(General ~.-image_new -category, data = merged_image_trust_placement, mtry= 7, importance = TRUE) 
-varImpPlot(response_rf)
+general_image_rf <- randomForest(General ~.-image_new -category, data = merged_image_trust_placement, mtry= 7, importance = TRUE) 
+varImpPlot(general_image_rf)
 
 ```
 # Seperate individuals based on deviation from the average trust:
@@ -419,6 +419,13 @@ individual_char_prelim_tree <- rpart(General ~.-session_id, data = merged_indivi
 
 ```{r}
 rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+
+```{r}
+merged_individual$General = factor(merged_individual$General) 
+general_individual_rf <- randomForest(General ~.-session_id, data = merged_individual, mtry= 5, importance = TRUE) 
+varImpPlot(general_individual_rf)
+
 ```
 From the decision tree we find that age and literacy score are the biggest predictors for individual trust.
 
