@@ -118,10 +118,7 @@ strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_belie
 rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
-```{r}
-response_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) ## mtry number of columns - 1
-varImpPlot(response_rf)
-```
+
 
 ##Clarity:
 
@@ -283,13 +280,14 @@ We merge our image_trust_placement dataset with the raw one to select and add th
 merged_image_trust_placement <- trust_2023_raw_data %>%
   left_join(image_trust_placement, by = "image_new") %>%
   group_by(image_new) %>%
-    select(image_new, vistype, General, category, `attr: data-ink ratio`,
-         `attr: # distinct colors`, `attr: black&white`, 
-         `attr: visual density`, `attr: human recognizable object`, 
-         `attr: human depiction`)%>%
+    select(image_new, vistype, General, category, `attr_data_ink_ratio`,
+         `attr_num_distinct_colors`, `attr_black_white`, 
+         `attr_visual_density`, `attr_human_recognizable_object`, 
+         `attr_human_depiction`)%>%
 
    slice(1)  
-merged_image_trust_placement
+merged_image_trust_placement%>%
+unique()
 
 
 ```
@@ -303,7 +301,12 @@ vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_imag
 rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 We find that visualization type and human recognizable objects are the biggest predictors of trust.
+```{r}
+merged_image_trust_placement$General = factor(merged_image_trust_placement$General) 
+response_rf <- randomForest(General ~.-image_new -category, data = merged_image_trust_placement, mtry= 7, importance = TRUE) 
+varImpPlot(response_rf)
 
+```
 # Seperate individuals based on deviation from the average trust:
 
 In the chunk below we asses the mean agreement and sd for each individual
