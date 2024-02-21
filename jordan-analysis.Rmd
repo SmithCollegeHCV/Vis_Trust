@@ -117,6 +117,11 @@ strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_belie
 ```{r}
 rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+```{r}
+strongly_believe_data$response = factor(strongly_believe_data$response) 
+belief_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) 
+varImpPlot(belief_rf)
+```
 
 
 
@@ -140,6 +145,12 @@ strong_clarity_prelim_tree <- rpart(response ~.-image_new, data = strongly_clear
 ```{r}
 rpart.plot(strong_clarity_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+```{r}
+strongly_clear_data$response = factor(strongly_clear_data$response) 
+clear_rf <- randomForest(response ~.-image_new, data = strongly_clear_data, mtry= 12, importance = TRUE) 
+varImpPlot(clear_rf)
+```
+
 
 ##Reliability:
 
@@ -161,6 +172,12 @@ strong_reliability_prelim_tree <- rpart(response ~.-image_new , data = strongly_
 ```{r}
 rpart.plot(strong_reliability_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+```{r}
+strongly_reliable_data$response = factor(strongly_reliable_data$response) 
+reliable_rf <- randomForest(response ~.-image_new, data = strongly_reliable_data, mtry= 12, importance = TRUE) 
+varImpPlot(reliable_rf)
+```
+
 
 ##Familiarity
 
@@ -181,6 +198,17 @@ strong_familiar_prelim_tree <- rpart(response ~.-image_new , data = strongly_fam
 
 ```{r}
 rpart.plot(strong_familiar_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+```
+```{r}
+strongly_familiar_data$response = factor(strongly_familiar_data$response) 
+familiar_rf <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE) 
+varImpPlot(familiar_rf)
+```
+
+```{r}
+strongly_familiar_data$response = factor(strongly_familiar_data$response) 
+familiar_rf <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE) 
+varImpPlot(familiar_rf)
 ```
 
 ##Confidence:
@@ -204,6 +232,12 @@ strong_confidence_prelim_tree <- rpart(response ~.-image_new , data = strong_con
 ```{r}
 rpart.plot(strong_confidence_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
+```{r}
+strong_confidence_data$response = factor(strong_confidence_data$response) 
+confidence_rf <- randomForest(response ~.-image_new, data = strong_confidence_data, mtry= 12, importance = TRUE) 
+varImpPlot(confidence_rf)
+```
+
 # 3. Find General Higher or Lower Trust for Images and Individuals 
 
 # seperate images based on deviation from the usual:
