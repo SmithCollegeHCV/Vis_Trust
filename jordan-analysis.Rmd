@@ -76,7 +76,7 @@ rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
 We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting. 
 
 ```{r}
-category_rf <- randomForest(category ~.-image_new, data = category_data, mtry= 6, importance = TRUE)
+category_rf <- randomForest(category ~.-image_new, data = category_data, mtry= 8, importance = TRUE) ## mtry number of columns - 1
 varImpPlot(category_rf)
 ```
 
@@ -119,6 +119,11 @@ strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_belie
 rpart.plot(strong_belief_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
 ```
 
+```{r}
+response_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) ## mtry number of columns - 1
+varImpPlot(response_rf)
+```
+
 ##Clarity:
 
 ```{r}
@@ -133,7 +138,7 @@ strongly_clear_data <- trust_2023_raw_data %>%
 
 
 ```{r}
-strong_clarity_prelim_tree <- rpart(response ~.-image_new , data = strongly_clear_data, method="class")
+strong_clarity_prelim_tree <- rpart(response ~.-image_new, data = strongly_clear_data, method="class")
 ```
 
 ```{r}
