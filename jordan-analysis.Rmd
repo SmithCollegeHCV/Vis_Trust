@@ -22,6 +22,8 @@ library(GGally)
 library(tidyr)
 library(kableExtra)
 library(randomForest)
+library(devtools)
+library(reprtree)
 select <- dplyr::select
 ```
 
@@ -428,7 +430,7 @@ strongly_believe_data <- trust_2023_raw_data %>%
 ```
 
 ```{r}
-strong_belief_prelim_tree <- rpart(response ~.-image_new , data = strongly_believe_data, method="class")
+strong_belief_prelim_tree <- rpart(response ~.-image_new -age -sex, data = strongly_believe_data, method="class")
 ```
 
 ```{r}
@@ -439,7 +441,8 @@ We find that the significant determinants of credibility are: vis type, colorful
 
 ```{r}
 strongly_believe_data$response = factor(strongly_believe_data$response) 
-belief_rf <- randomForest(response ~.-image_new, data = strongly_believe_data, mtry= 12, importance = TRUE) 
+set.seed(123)
+belief_rf <- randomForest(response ~.-image_new -age -sex, data = strongly_believe_data, mtry= 10, importance = TRUE) 
 varImpPlot(belief_rf)
 ```
 We use random forest to see what predictors affect accuracy and purity. Data literacy and vistype are the most important feature and this confirms that the tree is not over_fitting. We find that age doesn't appear to be the strong predictor in the tree but is the most important factor in purity.
@@ -577,11 +580,10 @@ what happens when we have a combination of indiv diff and vis attributes who win
 try to select more and find if we're overfitting. 
 
 ```{r}
-library(reprtree)
-
-model <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE)
-reprtree:::plot.reprtree( ReprTree(model, strongly_familiar_data, metric='d2'))
+model <- randomForest(category ~.-image_new, data = category_data, mtry= 8, importance = TRUE)
+reprtree:::plot.reprtree( ReprTree(model, strongly_familiar_data, metric='d2'), depth= 4)
 ```
+
 
 
 
