@@ -575,3 +575,13 @@ From analyzing each of the 5 dimensions of trust's decision trees we conclude th
 
 what happens when we have a combination of indiv diff and vis attributes who wins between the two
 try to select more and find if we're overfitting. 
+
+```{r}
+library(reprtree)
+
+model <- randomForest(response ~.-image_new, data = strongly_familiar_data, mtry= 12, importance = TRUE)
+reprtree:::plot.reprtree( ReprTree(model, strongly_familiar_data, metric='d2'))
+```
+
+
+
