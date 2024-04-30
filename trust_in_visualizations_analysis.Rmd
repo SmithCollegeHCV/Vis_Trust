@@ -37,7 +37,11 @@ trust_2023_raw_data <- read_csv("trust_2023_raw_data.csv") %>%
                            levels = c("Strongly Disagree", "Disagree", "Nor", "Agree", "Strongly Agree")),
          likertscale = factor(likertscale, ordered = TRUE),
          category = factor(category, levels = c("I", "N", "G", "S"), 
-                           labels = c("Infographic", "News", "Government", "Scientific")))
+                           labels = c("Infographic", "News", "Government", "Scientific")),
+         education = factor(education, ordered = TRUE, 
+                            levels = c("highschool", "associate", "bachelors", "masters", "doctorate"),
+                            labels = c("High School", "Associate", "Bachelors", "Masters", "Doctorate")),
+degree_names <- c("High School", "Associate", "Bachelor", "Masters", "Doctorate"))
 ```
 
 ## Sources
@@ -63,19 +67,53 @@ First, we will select each image, along with its category and descriptive inform
 ```{r}
 category_data <- trust_2023_raw_data %>%
   select(c(image_new, category, vistype, starts_with("attr"))) %>%
-  unique()
+  unique() %>%
+  mutate(attr_black_white = recode(attr_black_white, y = "B&W", n = "Full Color"),
+         attr_human_recognizable_object = recode(attr_human_recognizable_object, y = "Contains a human-recognizable object", n = "No human-recognizable object")) %>%
+  rename("Visual Density" = attr_visual_density,
+         "Data-Ink Ratio" = attr_data_ink_ratio,
+         "# Distinct Colors" = attr_num_distinct_colors)
 ```
 
 
 Next, we want to model the sets of features (and interactions between them) that distinguish each category. Because we cannot assume a multivariate normal distribution in our predictors, we opted for a recursive partitioning approach instead of linear discriminant analysis:
 
 ```{r}
+
+
 category_features <- rpart(category ~.-image_new, 
                               data = category_data, 
                               method = "class", 
                               minsplit = 8)
 
-rpart.plot(category_features, type = 4, clip.right.labs = FALSE, extra=2)
+split.fun <- function(x, labs, digits, varlen, faclen)
+{
+# replace commas with spaces (needed for strwrap)
+labs <- gsub(",", " ", labs)
+for(i in 1:length(labs)) {
+# split labs[i] into multiple lines
+labs[i] <- paste(strwrap(labs[i], width = 25), collapse = "\n")
+}
+labs
+}
+
+pdf(file = "tree.pdf", width = 8.5, height = 5)
+
+rpart.plot(category_features, type = 4, 
+            clip.right.labs = FALSE, 
+            extra=2,  
+            #under = TRUE,  
+            cex = 0.55,
+            fallen.leaves = FALSE,
+            branch = 1,
+            clip.facs = TRUE,
+            #facsep = "\n",
+            #split.fun = split.fun,
+            ycompress = FALSE,
+            Margin = 0.1
+           )
+
+dev.off()
 ```
 We use random forest to see what predictors affect accuracy and separation. Human recognizable objects and vistype are the most important feature and this confirms that the tree is not over_fitting.  
 
@@ -210,7 +248,23 @@ vis_attr_prelim_tree <- rpart(General ~.-image_new -category, data = merged_imag
 ```
 
 ```{r}
-rpart.plot(vis_attr_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2)
+pdf(file = "vis_attr_prelim_tree.pdf", width = 8.5, height = 5)
+
+rpart.plot(vis_attr_prelim_tree, type = 4, 
+            clip.right.labs = FALSE, 
+            extra=2,  
+            #under = TRUE,  
+            cex = 0.55,
+            fallen.leaves = FALSE,
+            branch = 1,
+            clip.facs = TRUE,
+            #facsep = "\n",
+            #split.fun = split.fun,
+            ycompress = FALSE,
+            Margin = 0.1
+           )
+
+dev.off()
 ```
 
 We find that areas, bars, circles, and maps tend to have higher trust than diagrams, tables, trees, and grids. We also find that visualizations with human recognizable objects tend to be more trusted by people. On the third level of the decision tree, we find that diagrams and points tend to have higher trust than lines, tables, trees, and networks.
@@ -330,8 +384,16 @@ individual_placement_percentages
 ```
 
 ```{r, rotate=90}
-individual_char_prelim_tree <- rpart(General ~.-session_id -sex -age, data = merged_individual, method="class")
-rpart.plot(individual_char_prelim_tree, type = 4, clip.right.labs = FALSE, extra=2,  under = TRUE,  cex = 0.55
+individual_char_prelim_tree <- rpart(General ~.-session_id -sex -age, data = merged_individual, method="class", minbucket = 10)
+rpart.plot(individual_char_prelim_tree, 
+           type = 4, 
+           clip.right.labs = FALSE, 
+           extra=2,  
+           #under = TRUE,  
+           cex = 0.55,
+           fallen.leaves = FALSE,
+           branch = 1,
+           clip.facs = TRUE
 )
 ```
 
@@ -350,12 +412,26 @@ Mini_score is also important for both accuracy and purity.
 In the below chunk, we  visualize how higher and lower trust is distributed by visual literacy, sex, and education to see if these 3 variables are correlated or if one is proxy for the others. We find that they are independent. 
 
 ```{r}
-education_order <- c("highschool", "associate", "bachelors", "masters", "doctorate")
+education_order <- c("High School", "Associate", "Bachelors", "Masters", "Doctorate")
 
-merged_individual <- merged_individual %>%
-  mutate(education = factor(education, levels = education_order))
-merged_individual%>%
-ggplot(aes(x=age,y=mini_score, color=General))+geom_point()+facet_grid(sex~education)
+merged_individual %>%
+  mutate(education = case_match(education, 
+                                "highschool" ~ "High School",
+                                "associate" ~ "Associate", 
+                                "bachelors" ~ "Bachelors", 
+                                "masters" ~ "Masters", 
+                                "doctorate" ~ "Doctorate"),
+         education = factor(education, education_order)) %>%
+ggplot(aes(x=age,y=mini_score, fill=sex))+geom_point(color="black", pch=21, size=2)+facet_grid(~education) +
+  ylab("Visualization Literacy Score\n(MiniVLAT)") +
+  xlab("Age (years)") + 
+  scale_y_continuous(breaks=seq(0,12,2)) +
+  scale_fill_manual(name = "Sex (self-reported)", labels = c("Female", "Male"), values=c("darkorchid","deepskyblue"))+
+  guides(fill="legend") + theme(legend.position="bottom")
+        
+
+
+
 ```
 
 ```{r}
