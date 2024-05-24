@@ -1,6 +1,6 @@
 ---
 title: "Exogenous and Endogenous Factors that Influence Trust in Visualization"
-author: "Syrine Matoussi"
+author: "Jordan Crouser, Syrine Matoussi, and Lan Kung"
 date: "2024-02-16"
 output:
   html_document: default
